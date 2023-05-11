@@ -1,0 +1,220 @@
+#!/bin/sh
+
+function clone_dir {
+  # get the source directory path from the first argument
+  local source_dir="$1"
+  # create the destination directory by appending "-ot" to the source directory name
+  local dest_dir="$2"
+
+  # check if the destination directory exists
+  if [ -d "$dest_dir" ]; then
+    echo "$dest_dir already exists."
+    read -p "Do you want to remove it? (y/n): " choice
+
+    # check the user's choice
+    case "$choice" in
+      y|Y)
+        echo "Removing $dest_dir..."
+        rm -rf "$dest_dir"
+        ;;
+      *)
+        echo "Skipping removal of $dest_dir."
+        return
+        ;;
+    esac
+  fi
+
+  # Clone the directory with progress update
+  echo "Cloning directory $source_dir as $dest_dir"
+  rsync -a --info=progress2 "$source_dir"/ "$dest_dir"
+  
+  echo "Cloning completed!"
+}
+
+function check_and_fix_file_with_ffmpeg_if_needed {
+  local file="$1"
+
+  # check if the file has a malformed or missing WAV header
+  if soxi "$file" 2>&1 | grep -q "wav: wave header missing extended part of fmt chunk"; then
+    echo "File has a malformed or missing WAV header. Re-encoding with ffmpeg..."
+    ffmpeg -i "$file" -c:a copy -strict -2 "${file}.tmp.wav" && mv "${file}.tmp.wav" "$file"
+  fi
+}
+
+function normalize_audio {
+  # get the path of the audio file from the first argument
+  local audio_file="$1"
+
+  # get the peak level of the audio file
+  peak=$(sox "$audio_file" -n stats -s 16 2>&1 | awk '/^Pk lev dB/{print $5}')
+
+  # if the peak level is greater than or equal to -1 dBFS, the audio is already normalized
+  if [ "$(echo "$peak >= -1.0" | bc)" -eq 1 ]; then
+    echo "Audio file is already normalized: $audio_file"
+  else
+    echo "Normalizing audio file: $audio_file"
+
+    # get the original sample rate and number of channels
+    sr=$(soxi -r "$audio_file")
+    channels=$(soxi -c "$audio_file")
+
+    # normalize the audio file using SoX with automatic gain adjustment
+    normalized_file="${audio_file%.wav}.normalized.wav"
+    # sox -G -S --norm=-1 "$audio_file" "$normalized_file" rate "$sr" remix "$channels" highpass 20 lowpass 22050
+    sox -G -S --norm=-1 "$audio_file" "$normalized_file"
+
+    # Check if the normalization was successful and replace the original audio file with the normalized audio file
+    if [ -f "$normalized_file" ]; then
+      mv "$normalized_file" "$audio_file"
+      echo "Normalization complete: $audio_file"
+    else
+      echo "An error occurred during normalization. Skipping file: $audio_file"
+    fi
+  fi
+}
+
+function convert_audio_file {
+  local file="$1"
+
+  # get the original sample rate and bit depth of the file
+  local original_sr=$(soxi -r "$file")
+  local original_bd=$(soxi -b "$file")
+
+  # check if the sample rate needs to be converted
+  if [[ "$original_sr" -ne 44100 ]]; then
+    echo "Converting sample rate to 44100 Hz..."
+    sox "$file" -S -r 44100 "${file}.tmp.wav" && mv "${file}.tmp.wav" "$file"
+  fi
+
+  # check if the bit depth needs to be converted
+  if [[ "$original_bd" -gt 24 ]]; then
+    echo "Converting bit depth to 24 bits..."
+    sox "$file" -S -b 24 "${file}.tmp.wav" && mv "${file}.tmp.wav" "$file"
+  fi
+}
+
+function process_files {
+  # loop through all files and directories in the destination directory
+  for file in "$1"/*; do
+    # if the file is a directory, recursively call the function with the directory as the argument
+    if [ -d "$file" ]; then
+      echo "$file is a directory"
+      process_files "$file"
+
+    # if the file is a WAV file
+    elif [ "${file##*.}" == "wav" ]; then
+      echo "Processing file: $file"
+
+      check_and_fix_file_with_ffmpeg_if_needed "$file"
+
+      # check if the file already has a sample rate of 44100 Hz and a bit depth of 24. If so, just normalise, if needed
+      convert_audio_file "$file"
+
+    fi
+  done
+}
+
+function normalize_all_files {
+  # loop through all files and directories in the destination directory
+  for file in "$1"/*; do
+    # if the file is a directory, recursively call the function with the directory as the argument
+    if [ -d "$file" ]; then
+      normalize_all_files "$file"
+
+    # if the file is a WAV file
+    elif [ "${file##*.}" == "wav" ]; then
+      echo "Processing file: $file"
+
+      # check if the file already has a sample rate of 44100 Hz and a bit depth of 24. If so, just normalise, if needed
+      normalize_audio "$file"
+    else
+      echo "Did nothing to $file"
+    fi
+  done
+}
+
+function check_files_ot {
+  # Loop through all files and directories in the destination directory
+  for file in "$1"/*; do
+    # If the file is a directory, recursively call the function with the directory as the argument
+    if [ -d "$file" ]; then
+      check_files_ot "$file"
+
+    # If the file is a WAV file
+    elif [ "${file##*.}" == "wav" ]; then
+      # Use SoX to retrieve file information
+      info=$(soxi "$file")
+
+      # Extract the sample rate and bit depth from the SoX info
+      sample_rate=$(echo "$info" | awk '/Sample Rate:/ { print $3 }')
+      bit_depth=$(echo "$info" | awk '/Bit Depth:/ { print $3 }')
+
+      # Check if the bit depth is higher than 24 or the sample rate is different than 44100
+      if [ -n "$bit_depth" ] && [ -n "$sample_rate" ] && { [ "$bit_depth" -gt 24 ] || [ "$sample_rate" -ne 44100 ]; }; then
+        echo "File: $file"
+        echo "Bit Depth: $bit_depth"
+        echo "Sample Rate: $sample_rate"
+      fi
+    fi
+  done
+}
+
+
+function clone_and_convert_ot {
+  # get the destination directory path from the first argument
+  local source_dir="$1"
+  # create the destination directory by appending "-ot" to the source directory name
+  local dest_dir="${source_dir}-ot"
+
+  # clone the directory
+  clone_dir "$source_dir" "$dest_dir"
+  
+  process_files "$dest_dir"
+}
+
+function clone_and_normalize {
+  echo "Running clone_and_normalize"
+
+  # get the destination directory path from the first argument
+  local source_dir="$1"
+  # create the destination directory by appending "-normalized" to the source directory name
+  local dest_dir="${source_dir}-normal"
+
+  # clone the directory
+  clone_dir "$source_dir" "$dest_dir"
+  
+  normalize_all_files $dest_dir
+}
+
+if [ $# -lt 2 ]; then
+  echo "Usage: $0 <command> <BASE_PATH>"
+  echo "Commands:"
+  echo "  clone-and-convert-ot"
+  echo "  clone-and-normalize"
+  echo "  check-files-ot"
+  echo "  normalize"
+  echo "  convert"
+  exit 1
+fi
+
+command=$1
+BASE_PATH=$2
+
+if [ "$command" == "clone-and-convert-ot" ]; then
+  clone_and_convert_ot "$BASE_PATH"
+elif [ "$command" == "convert" ]; then
+  process_files "$BASE_PATH"
+elif [ "$command" == "clone-and-normalize" ]; then
+  clone_and_normalize "$BASE_PATH"
+elif [ "$command" == "normalize" ]; then
+  normalize_all_files "$BASE_PATH"
+elif [ "$command" == "check-files-ot" ]; then
+  check_files "$BASE_PATH"
+else
+  echo "Invalid command. Valid commands are:"
+  echo "  clone-and-convert-ot"
+  echo "  clone-and-normalize"
+  echo "  check-files-ot"
+  echo "  normalize"
+  echo "  convert"
+fi
