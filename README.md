@@ -37,7 +37,8 @@ To install and use this CLI tool, follow these steps:
 4. Create a symbolic link to the tool in the `/usr/local/bin` directory:
 
     ```shell
-    sudo ln -s "$(pwd)/sox-cli" /usr/local/bin/sox-cli
+    # -f option will replace the link, if it already exists, in case you move the CLI
+    sudo ln -sf "$(pwd)/sox-cli" /usr/local/bin/sox-cli
     ```
 
     This will allow you to execute the CLI tool from anywhere in your terminal.
