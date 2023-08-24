@@ -48,29 +48,29 @@ To install and use this CLI tool, follow these steps:
 To run the script, open a terminal and execute the script using the following command:
 
 ```shell
-sox-cli <command> <BASE_PATH>
+sox-cli <command> <TARGET_PATH>
 ```
 
 
 Replace `<command>` with one of the following available commands:
 
-- `clone-and-convert-ot`: Clones a directory with `-ot` appended to it and converts audio files within it to 44100 sample rate, and any file with a bit depth higher than 24 to a bit depth of 24. The `<BASE_PATH>` should point to the source directory. **When cloning, if the destination folder exists, it will be removed, but you will get a prompt to comfirm**
+- `clone-and-convert-ot`: Clones a directory with `-ot` appended to it and converts audio files within it to 44100 sample rate, and any file with a bit depth higher than 24 to a bit depth of 24. The `<TARGET_PATH>` should point to the source directory. **When cloning, if the destination folder exists, it will be removed, but you will get a prompt to comfirm**
 
-- `convert`: Converts audio files for Octatrack recursively within a directory specified by `<BASE_PATH>`. See `clone-and-convert-ot` for more details.
+- `convert`: Converts audio files in target directory (without cloning the directory first) for Octatrack recursively within a directory specified by `<TARGET_PATH>`. See `clone-and-convert-ot` for more details.
 
-- `clone-and-normalize`: Clones a directory with `-normal` appended to it, and normalizes audio files within it. The `<BASE_PATH>` should point to the source directory. **When cloning, if the destination folder exists, it will be removed, but you will get a prompt to comfirm**
+- `clone-and-normalize`: Clones a directory with `-normal` appended to it, and normalizes audio files within it. The `<TARGET_PATH>` should point to the source directory. **When cloning, if the destination folder exists, it will be removed, but you will get a prompt to comfirm**
 
-- `normalize`: Normalizes audio files recursively within a directory specified by `<BASE_PATH>`.
+- `normalize`: Normalizes audio files recursively within a directory specified by `<TARGET_PATH>`.
 
-- `check-files-ot`: Checks the sample rate and bit depth of WAV files within a directory specified by `<BASE_PATH>`. It reports any files with a sample rate different from 44100 Hz or a bit depth higher than 24.
+- `check-files-ot`: Checks the sample rate and bit depth of WAV files within a directory specified by `<TARGET_PATH>`. It reports any files with a sample rate different from 44100 Hz or a bit depth higher than 24.
 
-**Note:** Replace `<BASE_PATH>` with the path to the target directory where the operations will be performed.
+**Note:** Replace `<TARGET_PATH>` with the path to the target directory where the operations will be performed.
 
 ## Additional Details
 
 - The script utilizes the `rsync` command to clone directories and `soxi` to retrieve audio file information.
 
-- The `clone_dir` function clones a directory by copying its contents to a destination directory specified as `<BASE_PATH>-ot`.
+- The `clone_dir` function clones a directory by copying its contents to a destination directory specified as `<TARGET_PATH>-ot`.
 
 - The `check_and_fix_file_with_ffmpeg_if_needed` function checks if a WAV file has a malformed or missing WAV header and re-encodes it using FFmpeg if necessary.
 
