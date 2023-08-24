@@ -16,25 +16,26 @@ To use this shell script, make sure you have the following dependencies installe
 
 To install and use this CLI tool, follow these steps:
 
-1. Clone the repository to your local machine:
+1. Choose a directory where you want to store the application, and go to that directory
+2. Clone the repository to your local machine:
 
     ```shell
     git clone https://github.com/nkear003/sox-cli
     ```
  
-2. Change into the cloned directory:
+3. Change into the cloned directory:
 
     ```shell
     cd sox-cli
     ```
 
-3. Make the script executable
+4. Make the script executable
 
     ```shell
     chmod +x sox-cli
     ```
 
-4. Create a symbolic link to the tool in the `/usr/local/bin` directory:
+5. Create a symbolic link to the tool in the `/usr/local/bin` directory:
 
     ```shell
     # -f option will replace the link, if it already exists, in case you move the CLI
@@ -85,6 +86,10 @@ Replace `<command>` with one of the following available commands:
 - The `check_files` function recursively checks the sample rate and bit depth of WAV files within a given directory and reports any files with issues.
 
 Feel free to modify and adapt the script according to your specific requirements.
+
+## Updating
+
+Currently the best way to update would be to simply change to source code directory and run `git pull`. You may need to make the file executable again by using `chmod +x sox-cli`
 
 ## License
 
